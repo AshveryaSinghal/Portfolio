@@ -111,7 +111,7 @@ export default function Hero() {
             <Button
               variant="secondary"
               size="lg"
-              href="/assets/Ashverya Resume 1.pdf"
+              href="/assets/ashverya-resume.pdf"
               external
             >
               <FileText className="h-4 w-4" strokeWidth={1.75} />

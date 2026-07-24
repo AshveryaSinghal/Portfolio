@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import { Github, ArrowUpRight, Sparkles, Smartphone, Camera, Search, ShieldAlert } from "lucide-react";
+import { Github, ArrowUpRight, Sparkles, Smartphone, Camera, Search, ShieldAlert, ChevronLeft, ChevronRight } from "lucide-react";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ interface Project {
   accentColor: string;
   placeholderIcon: React.ElementType;
   placeholderLabel: string;
-  /** One or more screenshots. With 2+, the card auto-advances through them on hover. */
+  /** One or more screenshots. With 2+, arrows/dots let the viewer click through them. */
   screenshots?: string[];
 }
 
@@ -58,7 +58,7 @@ const PROJECTS: Project[] = [
     accentColor: "from-violet-500/10 to-violet-500/5",
     placeholderIcon: Search,
     placeholderLabel: "VisualFind · Visual Product Search",
-    screenshots: ["/assets/Visual Find.png",
+    screenshots: ["/assets/visual-find.png",
       "/assets/search.png",
       "/assets/history.png",
       "/assets/analysis.png"
@@ -98,7 +98,8 @@ interface OtherProject {
   github: string;
   demo: string | null;
   icon: React.ElementType;
-  screenshot?: string;
+  /** One or more screenshots. With 2+, arrows/dots let the viewer click through them. */
+  screenshots?: string[];
 }
 
 const OTHER_PROJECTS: OtherProject[] = [
@@ -109,9 +110,9 @@ const OTHER_PROJECTS: OtherProject[] = [
       "AI-powered resume analysis and job-matching platform using LLMs to identify skill gaps and evaluate ATS compatibility.",
     tags: ["Python", "LLM", "RAG", "Streamlit", "OpenAI"],
     github: "https://github.com/AshveryaSinghal/ResumeIQ-AI",
-    demo: "https://ashverya-resumeiq.streamlit.app/",
+    demo: "https://resumeiq-ai-bay.vercel.app/",
     icon: Sparkles,
-    screenshot: "/assets/ResumeIQ Dash.png",
+    screenshots: ["/assets/Resume analysis.png","/assets/strength.png","/assets/skill.png","/assets/interview.png","/assets/fit.png",],
   },
   {
     id: "santmarg",
@@ -122,7 +123,7 @@ const OTHER_PROJECTS: OtherProject[] = [
     github: "https://github.com/ashveryasinghal/santmarg",
     demo: "https://play.google.com/store/apps/details?id=com.ashverya.satsang_app",
     icon: Smartphone,
-    screenshot: "/assets/santmarg.png",
+    screenshots: ["/assets/santmarg.png"],
   },
 ];
 
@@ -139,52 +140,46 @@ interface ScreenshotProps {
   Icon: React.ElementType;
   label: string;
   featured: boolean;
-  /** One or more images. 2+ auto-advance in a contained slideshow on hover. */
+  /** One or more images. With 2+, arrows/dots appear so the viewer can click through them. */
   images?: string[];
-  reducedMotion?: boolean;
 }
 
-function Screenshot({ accentColor, Icon, label, featured, images, reducedMotion }: ScreenshotProps) {
+function Screenshot({ accentColor, Icon, label, featured, images }: ScreenshotProps) {
   const gallery = (images ?? []).filter(Boolean);
-  const hasGallery = gallery.length > 0;
-  const multiSlide = gallery.length > 1;
+  const hasImages = gallery.length > 0;
+  const hasMultiple = gallery.length > 1;
 
-  const [firstLoaded, setFirstLoaded] = useState(false);
-  const [error, setError] = useState(false);
+  // Track load/error state per image index so one bad or slow image never
+  // hides the whole gallery, and reloading the page can't get "stuck" at
+  // opacity 0. The ref callback below catches images that loaded from the
+  // browser cache before React ever attached the onLoad listener.
+  const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
+  const [errorMap, setErrorMap] = useState<Record<number, boolean>>({});
   const [activeIndex, setActiveIndex] = useState(0);
-  const [isHovering, setIsHovering] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [hoverLeft, setHoverLeft] = useState(false);
+  const [hoverRight, setHoverRight] = useState(false);
 
-  const showReal = hasGallery && !error;
-
-  const stopAutoplay = () => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
+  const markLoaded = (i: number) => setLoadedMap((prev) => (prev[i] ? prev : { ...prev, [i]: true }));
+  const makeImgRef = (i: number) => (el: HTMLImageElement | null) => {
+    if (el && el.complete && el.naturalWidth > 0) markLoaded(i);
   };
 
-  useEffect(() => stopAutoplay, []);
+  const activeFailed = !!errorMap[activeIndex];
+  const showImage = hasImages && !activeFailed;
+  const activeLoaded = !!loadedMap[activeIndex];
 
-  const handleMouseEnter = () => {
-    if (!multiSlide || reducedMotion) return;
-    setIsHovering(true);
-    stopAutoplay();
-    intervalRef.current = setInterval(() => {
-      setActiveIndex((i) => (i + 1) % gallery.length);
-    }, 1400);
+  const goTo = (i: number) => setActiveIndex(((i % gallery.length) + gallery.length) % gallery.length);
+  const goPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goTo(activeIndex - 1);
   };
-
-  const handleMouseLeave = () => {
-    setIsHovering(false);
-    stopAutoplay();
-    setActiveIndex(0);
+  const goNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goTo(activeIndex + 1);
   };
 
   return (
     <div
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       className={cn(
         "relative w-full aspect-[16/10] rounded-xl overflow-hidden border border-rule",
         "bg-gradient-to-br",
@@ -209,27 +204,18 @@ function Screenshot({ accentColor, Icon, label, featured, images, reducedMotion 
         <div className="flex-1 mx-3 h-4 rounded bg-rule/60" />
       </div>
 
-      {/* Skeleton while first image loads */}
-      {showReal && !firstLoaded && (
+      {/* Skeleton while the active image loads */}
+      {showImage && !activeLoaded && (
         <div className="absolute inset-0 top-8 z-10">
           <div className="h-full w-full bg-surface-tertiary animate-pulse" />
         </div>
       )}
 
-      {/* Sliding image track — clipped within the frame */}
-      {showReal && (
-        <div className="absolute inset-0 top-8 overflow-hidden z-10">
-          <div
-            className="flex h-full will-change-transform"
-            style={{
-              width: `${gallery.length * 100}%`,
-              transform: `translateX(-${(activeIndex * 100) / gallery.length}%)`,
-              transition: reducedMotion
-                ? "none"
-                : "transform 700ms cubic-bezier(0.65, 0, 0.35, 1)",
-            }}
-          >
-            {gallery.map((src, i) => (
+      {/* All images are rendered (so they preload + cache), only the active one is visible */}
+      {hasImages && (
+        <div className="absolute inset-0 top-8 z-10">
+          {gallery.map((src, i) => (
+            !errorMap[i] && (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={src}
@@ -237,26 +223,88 @@ function Screenshot({ accentColor, Icon, label, featured, images, reducedMotion 
                 alt={`${label} — screenshot ${i + 1}`}
                 loading={i === 0 ? "eager" : "lazy"}
                 decoding="async"
-                onLoad={() => i === 0 && setFirstLoaded(true)}
-                onError={() => i === 0 && setError(true)}
+                ref={makeImgRef(i)}
+                onLoad={() => markLoaded(i)}
+                onError={() => setErrorMap((prev) => ({ ...prev, [i]: true }))}
                 className={cn(
-                  "h-full object-cover object-top shrink-0",
-                  "transition-opacity duration-500",
-                  firstLoaded ? "opacity-100" : "opacity-0"
+                  "absolute inset-0 h-full w-full object-cover object-top",
+                  "transition-opacity duration-300",
+                  i === activeIndex && loadedMap[i] ? "opacity-100" : "opacity-0"
                 )}
-                style={{ width: `${100 / gallery.length}%` }}
               />
-            ))}
-          </div>
+            )
+          ))}
         </div>
       )}
 
-      {/* Slide indicators */}
-      {showReal && multiSlide && (
+      {/* Prev/next — invisible hover zones on each edge; the arrow and a soft
+          gradient fade in only while the cursor is over that side, and fade
+          back out the moment it moves away (no persistent buttons/circles). */}
+      {showImage && hasMultiple && (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            onMouseEnter={() => setHoverLeft(true)}
+            onMouseLeave={() => setHoverLeft(false)}
+            aria-label="Previous screenshot"
+            className="absolute inset-y-0 left-0 w-[38%] z-20 flex items-center justify-start appearance-none bg-transparent border-0 p-0 cursor-pointer"
+          >
+            <span
+              className={cn(
+                "absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-black/30 via-black/10 to-transparent",
+                "transition-opacity duration-300",
+                hoverLeft ? "opacity-100" : "opacity-0"
+              )}
+            />
+            <ChevronLeft
+              className={cn(
+                "relative ml-2.5 h-6 w-6 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]",
+                "transition-all duration-300 ease-out",
+                hoverLeft ? "opacity-90 translate-x-0" : "opacity-0 -translate-x-1.5"
+              )}
+              strokeWidth={2.25}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            onMouseEnter={() => setHoverRight(true)}
+            onMouseLeave={() => setHoverRight(false)}
+            aria-label="Next screenshot"
+            className="absolute inset-y-0 right-0 w-[38%] z-20 flex items-center justify-end appearance-none bg-transparent border-0 p-0 cursor-pointer"
+          >
+            <span
+              className={cn(
+                "absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-black/30 via-black/10 to-transparent",
+                "transition-opacity duration-300",
+                hoverRight ? "opacity-100" : "opacity-0"
+              )}
+            />
+            <ChevronRight
+              className={cn(
+                "relative mr-2.5 h-6 w-6 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]",
+                "transition-all duration-300 ease-out",
+                hoverRight ? "opacity-90 translate-x-0" : "opacity-0 translate-x-1.5"
+              )}
+              strokeWidth={2.25}
+            />
+          </button>
+        </>
+      )}
+
+      {/* Dot indicators — click to jump to an image */}
+      {showImage && hasMultiple && (
         <div className="absolute bottom-2.5 inset-x-0 flex items-center justify-center gap-1.5 z-20">
           {gallery.map((_, i) => (
-            <span
+            <button
+              type="button"
               key={i}
+              onClick={(e) => {
+                e.stopPropagation();
+                goTo(i);
+              }}
+              aria-label={`Show screenshot ${i + 1}`}
               className={cn(
                 "h-1 rounded-full transition-all duration-300",
                 i === activeIndex
@@ -268,23 +316,16 @@ function Screenshot({ accentColor, Icon, label, featured, images, reducedMotion 
         </div>
       )}
 
-      {/* Hover hint for galleries — fades in only when idle */}
-      {showReal && multiSlide && (
-        <div
-          className={cn(
-            "absolute top-11 right-2.5 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full",
-            "bg-surface/80 border border-rule/60 backdrop-blur-sm text-[10px] font-medium text-fg-subtle",
-            "transition-opacity duration-300",
-            isHovering ? "opacity-0" : "opacity-100"
-          )}
-        >
+      {/* Image count badge */}
+      {showImage && hasMultiple && (
+        <div className="absolute top-11 right-2.5 z-20 flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface/80 border border-rule/60 backdrop-blur-sm text-[10px] font-medium text-fg-subtle">
           <Camera className="h-2.5 w-2.5" strokeWidth={2} />
-          {gallery.length}
+          {activeIndex + 1}/{gallery.length}
         </div>
       )}
 
-      {/* Placeholder: shown when no images or load failed */}
-      {!showReal && (
+      {/* Placeholder: shown when no images or the active image failed */}
+      {!showImage && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pt-4">
           <div className="h-11 w-11 rounded-xl bg-surface/80 border border-rule/60 flex items-center justify-center shadow-sm">
             <Icon className="h-5 w-5 text-fg-muted" strokeWidth={1.5} />
@@ -351,7 +392,6 @@ function ProjectCard({ project, index }: ProjectCardProps) {
             label={project.placeholderLabel}
             featured={project.featured}
             images={project.screenshots}
-            reducedMotion={!!reduced}
           />
         </motion.div>
       </div>
@@ -416,15 +456,136 @@ function ProjectCard({ project, index }: ProjectCardProps) {
   );
 }
 
+function OtherProjectThumb({
+  images,
+  title,
+  Icon,
+}: {
+  images: string[];
+  title: string;
+  Icon: React.ElementType;
+}) {
+  const gallery = images.filter(Boolean);
+  const hasImages = gallery.length > 0;
+  const hasMultiple = gallery.length > 1;
+
+  const [loadedMap, setLoadedMap] = useState<Record<number, boolean>>({});
+  const [errorMap, setErrorMap] = useState<Record<number, boolean>>({});
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const markLoaded = (i: number) => setLoadedMap((prev) => (prev[i] ? prev : { ...prev, [i]: true }));
+  const makeImgRef = (i: number) => (el: HTMLImageElement | null) => {
+    if (el && el.complete && el.naturalWidth > 0) markLoaded(i);
+  };
+
+  const activeFailed = !!errorMap[activeIndex];
+  const showThumb = hasImages && !activeFailed;
+  const activeLoaded = !!loadedMap[activeIndex];
+
+  const goTo = (i: number) => setActiveIndex(((i % gallery.length) + gallery.length) % gallery.length);
+  const goPrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goTo(activeIndex - 1);
+  };
+  const goNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    goTo(activeIndex + 1);
+  };
+
+  if (!showThumb) return null;
+
+  return (
+    <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-rule/60 bg-surface-tertiary">
+      {!activeLoaded && <div className="absolute inset-0 bg-surface-tertiary animate-pulse" />}
+
+      {gallery.map((src, i) => (
+        !errorMap[i] && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={src}
+            src={src}
+            alt={`${title} — screenshot ${i + 1}`}
+            loading={i === 0 ? "lazy" : "lazy"}
+            decoding="async"
+            ref={makeImgRef(i)}
+            onLoad={() => markLoaded(i)}
+            onError={() => setErrorMap((prev) => ({ ...prev, [i]: true }))}
+            className={cn(
+              "absolute inset-0 h-full w-full object-cover object-top",
+              "transition-all duration-500 group-hover:scale-[1.03]",
+              i === activeIndex && loadedMap[i] ? "opacity-100" : "opacity-0"
+            )}
+          />
+        )
+      ))}
+
+      <div className="absolute top-1.5 left-1.5 h-6 w-6 rounded-md bg-surface/90 border border-rule/60 backdrop-blur-sm flex items-center justify-center shadow-sm z-20">
+        <Icon className="h-3 w-3 text-fg-muted" strokeWidth={1.75} />
+      </div>
+
+      {hasMultiple && (
+        <>
+          <button
+            type="button"
+            onClick={goPrev}
+            aria-label="Previous screenshot"
+            className="absolute inset-y-0 left-0 w-[35%] z-20 flex items-center justify-start appearance-none bg-transparent border-0 p-0 cursor-pointer opacity-0 hover:opacity-100 transition-opacity duration-200"
+          >
+            <span className="absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-black/30 to-transparent" />
+            <ChevronLeft
+              className="relative ml-1.5 h-4 w-4 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
+              strokeWidth={2.25}
+            />
+          </button>
+          <button
+            type="button"
+            onClick={goNext}
+            aria-label="Next screenshot"
+            className="absolute inset-y-0 right-0 w-[35%] z-20 flex items-center justify-end appearance-none bg-transparent border-0 p-0 cursor-pointer opacity-0 hover:opacity-100 transition-opacity duration-200"
+          >
+            <span className="absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-black/30 to-transparent" />
+            <ChevronRight
+              className="relative mr-1.5 h-4 w-4 text-white drop-shadow-[0_1px_4px_rgba(0,0,0,0.6)]"
+              strokeWidth={2.25}
+            />
+          </button>
+
+          <div className="absolute bottom-1.5 inset-x-0 flex items-center justify-center gap-1 z-20">
+            {gallery.map((_, i) => (
+              <button
+                type="button"
+                key={i}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  goTo(i);
+                }}
+                aria-label={`Show screenshot ${i + 1}`}
+                className={cn(
+                  "h-1 rounded-full transition-all duration-300",
+                  i === activeIndex ? "w-3 bg-white" : "w-1 bg-white/50"
+                )}
+              />
+            ))}
+          </div>
+
+          <div className="absolute top-1.5 right-1.5 z-20 flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-surface/80 border border-rule/60 backdrop-blur-sm text-[9px] font-medium text-fg-subtle">
+            <Camera className="h-2 w-2" strokeWidth={2} />
+            {activeIndex + 1}/{gallery.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function OtherProjectCard({ project, index }: { project: OtherProject; index: number }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-60px" });
   const reduced = useReducedMotion();
   const Icon = project.icon;
 
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState(false);
-  const showThumb = !!project.screenshot && !error;
+  const gallery = (project.screenshots ?? []).filter(Boolean);
+  const showThumb = gallery.length > 0;
 
   return (
     <motion.div
@@ -434,29 +595,8 @@ function OtherProjectCard({ project, index }: { project: OtherProject; index: nu
       transition={{ duration: 0.45, delay: (index % 3) * 0.06, ease: [0.21, 0.47, 0.32, 0.98] }}
       className="group flex flex-col gap-3 p-5 rounded-2xl border border-rule bg-surface-secondary hover:border-[var(--accent)]/40 transition-colors duration-300"
     >
-      {/* Pic — compact thumbnail, only takes up space when a screenshot exists */}
-      {showThumb && (
-        <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden border border-rule/60 bg-surface-tertiary">
-          {!loaded && <div className="absolute inset-0 bg-surface-tertiary animate-pulse" />}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={project.screenshot}
-            alt={project.title}
-            loading="lazy"
-            decoding="async"
-            onLoad={() => setLoaded(true)}
-            onError={() => setError(true)}
-            className={cn(
-              "absolute inset-0 h-full w-full object-cover object-top",
-              "transition-all duration-500 group-hover:scale-[1.03]",
-              loaded ? "opacity-100" : "opacity-0"
-            )}
-          />
-          <div className="absolute top-1.5 left-1.5 h-6 w-6 rounded-md bg-surface/90 border border-rule/60 backdrop-blur-sm flex items-center justify-center shadow-sm">
-            <Icon className="h-3 w-3 text-fg-muted" strokeWidth={1.75} />
-          </div>
-        </div>
-      )}
+      {/* Pic — compact gallery, only takes up space when screenshots exist */}
+      {showThumb && <OtherProjectThumb images={gallery} title={project.title} Icon={Icon} />}
 
       <div className="flex items-center justify-between">
         {!showThumb && (

@@ -1,0 +1,75 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+:root {
+  --bg-app: #0B1018;
+  --bg-panel: #101725;
+  --bg-card: #141C2C;
+  --bg-card-hover: #182036;
+  --border-subtle: #232D42;
+  --border-strong: #33405c;
+  --text-primary: #EEF1F6;
+  --text-secondary: #A6AFC3;
+  --text-muted: #6B7690;
+  --accent-gold: #F2B84B;
+  --accent-gold-soft: rgba(242, 184, 75, 0.14);
+  --accent-teal: #45D8C8;
+  --accent-teal-soft: rgba(69, 216, 200, 0.14);
+  --accent-red: #F1685E;
+  --accent-red-soft: rgba(241, 104, 94, 0.14);
+  --accent-green: #57D19A;
+  --accent-green-soft: rgba(87, 209, 154, 0.14);
+  --shadow-lift: 0 20px 50px -20px rgba(0,0,0,0.55);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 9px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+}
+
+body {
+  background: var(--bg-app);
+  background-image:
+    radial-gradient(ellipse 900px 500px at 8% -10%, rgba(242,184,75,0.07), transparent 60%),
+    radial-gradient(ellipse 700px 500px at 100% 0%, rgba(69,216,200,0.06), transparent 55%);
+  color: var(--text-primary);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: 'Fraunces', Georgia, serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+::selection { background: var(--accent-gold-soft); color: var(--text-primary); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #445070; }
+
+:focus-visible {
+  outline: 2px solid var(--accent-gold);
+  outline-offset: 2px;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up { animation: fadeUp 0.45s cubic-bezier(.2,.7,.3,1) both; }
+
+@keyframes dialSweep {
+  from { stroke-dashoffset: var(--dial-start); }
+  to { stroke-dashoffset: var(--dial-end); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up { animation: none; }
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }

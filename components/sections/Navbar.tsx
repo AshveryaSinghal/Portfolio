@@ -114,7 +114,7 @@ export default function Navbar() {
             <Button
               variant="secondary"
               size="sm"
-              href="/assets/Ashverya Resume 1.pdf"
+              href="/assets/ashverya-resume.pdf"
               external
               className="hidden sm:inline-flex"
             >
